@@ -1,6 +1,7 @@
 package product 
 
 import (
+	"fmt"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -135,6 +136,29 @@ func TestCreateProduct(t *testing.T) {
 
 			if rec.Code != tt.wantStatus {
 				t.Fatalf("expected %d, got %d", tt.wantStatus, rec.Code)
+			}
+		})
+	}
+}
+
+func BenchmarkListProducts_Sizes(b *testing.B) {
+	sizes := []int{0, 10, 100, 1000}
+
+	for _, size := range sizes {
+		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
+			store := NewMemoryStore()
+			for i := 0; i < size; i++ {
+				store.Create(Product{Name: "Item", Price: 10})
+			}
+
+			handler := NewHandler(store)
+			req := httptest.NewRequest(http.MethodGet, "/products", nil)
+
+			b.ResetTimer()
+
+			for i := 0; i < b.N; i++ {
+				rec := httptest.NewRecorder()
+				handler.List(rec, req)
 			}
 		})
 	}
