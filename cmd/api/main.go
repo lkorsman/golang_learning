@@ -28,7 +28,10 @@ func main() {
 
 	r.Route("/products", func(r chi.Router) {
 		r.Get("/", handler.List)
-		r.With(apphttp.SimpleAuth).Post("/", handler.Create)
+		r.Post("/", handler.Create)
+		r.Get("/{id}", handler.Get)
+		r.With(apphttp.SimpleAuth).Put("/{id}", handler.Update)
+		r.With(apphttp.SimpleAuth).Delete("/{id}", handler.Delete)
 	})
 
 	srv := &http.Server{
