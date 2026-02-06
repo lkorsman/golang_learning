@@ -28,14 +28,19 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var p Product
-
 	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
 		http.Error(w, "invalid JSON", http.StatusBadRequest)
 		return
 	}
 
-	fmt.Printf("User %s is creating a product\n", user.Name)
+	if errs := ValidateProduct(p); len(errs) > 0 {
+		writeJSON(w, http.StatusBadRequest, map[string]interface{}{
+			"errors": errs,
+		})
+		return
+	}
 
+	fmt.Printf("User %s is creating a product\n", user.Name)
 	created := h.store.Create(p)
 	writeJSON(w, http.StatusCreated, created)
 }
