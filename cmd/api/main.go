@@ -9,33 +9,47 @@ import (
 	"syscall"
 	"time"
 
-	"lukekorsman.com/store/internal/product"
 	apphttp "lukekorsman.com/store/internal/http"
+	"lukekorsman.com/store/internal/product"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
-
+	"github.com/joho/godotenv"
 )
 
 func main() {
+	godotenv.Load()
+
+	var store product.Store
+	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
+		mysqlStore, err := product.NewMySQLStore(dbURL)
+		if err != nil {
+			panic(err)
+		}
+		defer mysqlStore.Close()
+		store = mysqlStore
+	} else {
+		store = product.NewMemoryStore()
+		fmt.Println("Using in-memory store")
+	}
+
 	r := chi.NewRouter()
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(apphttp.RequestTimer)
 
-	store := product.NewMemoryStore()
 	handler := product.NewHandler(store)
 
 	r.Route("/products", func(r chi.Router) {
 		r.Get("/", handler.List)
-		r.Post("/", handler.Create)
+		r.With(apphttp.SimpleAuth).Post("/", handler.Create)
 		r.Get("/{id}", handler.Get)
 		r.With(apphttp.SimpleAuth).Put("/{id}", handler.Update)
 		r.With(apphttp.SimpleAuth).Delete("/{id}", handler.Delete)
 	})
 
 	srv := &http.Server{
-		Addr:	":8080",
+		Addr:    ":8080",
 		Handler: r,
 	}
 
