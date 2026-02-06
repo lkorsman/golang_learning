@@ -1,8 +1,9 @@
-package product 
+package product
 
 import (
-	"fmt"
+	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -50,7 +51,7 @@ func TestListProducts_JSON(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			store := NewMemoryStore()
 			for _, p := range tt.seedProducts {
-				store.Create(p)
+				store.Create(context.Background(), p)
 			}
 
 			handler := NewHandler(store)
@@ -148,7 +149,7 @@ func BenchmarkListProducts_Sizes(b *testing.B) {
 		b.Run(fmt.Sprintf("size=%d", size), func(b *testing.B) {
 			store := NewMemoryStore()
 			for i := 0; i < size; i++ {
-				store.Create(Product{Name: "Item", Price: 10})
+				store.Create(context.Background(), Product{Name: "Item", Price: 10})
 			}
 
 			handler := NewHandler(store)

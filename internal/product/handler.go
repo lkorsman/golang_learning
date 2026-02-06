@@ -20,7 +20,12 @@ func NewHandler(store Store) *Handler {
 }
 
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
-	writeJSON(w, http.StatusOK, h.store.List())
+	products, err := h.store.List(r.Context())
+	if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+    writeJSON(w, http.StatusOK, products)
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -44,7 +49,11 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("User %s is creating a product\n", user.Name)
-	created := h.store.Create(p)
+	created, err := h.store.Create(r.Context(), p)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 	writeJSON(w, http.StatusCreated, created)
 }
 
@@ -56,7 +65,7 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	product, err := h.store.GetByID(id)
+	product, err := h.store.GetByID(r.Context(), id)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -86,7 +95,7 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	updated, err := h.store.Update(id, p)
+	updated, err := h.store.Update(r.Context(), id, p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -103,7 +112,7 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.store.Delete(id); err != nil {
+	if err := h.store.Delete(r.Context(), id); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}

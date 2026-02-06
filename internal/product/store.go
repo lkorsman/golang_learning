@@ -1,15 +1,16 @@
 package product
 
 import (
+	"context"
 	"fmt"
 )
 
 type Store interface {
-	List() []Product
-	Create(Product) Product
-	GetByID(id int) (Product, error)
-	Update(id int, p Product) (Product, error)
-	Delete(id int) error
+	List(ctx context.Context) ([]Product, error)
+	Create(ctx context.Context, p Product) (Product, error)
+	GetByID(ctx context.Context, id int) (Product, error)
+	Update(ctx context.Context, id int, p Product) (Product, error)
+	Delete(ctx context.Context, id int) error
 }
 
 type MemoryStore struct {
@@ -23,18 +24,36 @@ func NewMemoryStore() *MemoryStore {
 	}
 }
 
-func (s *MemoryStore) List() []Product {
-	return s.products
+func (s *MemoryStore) List(ctx context.Context) ([]Product, error) {
+	select {
+    case <-ctx.Done():
+        return nil, ctx.Err()
+    default:
+	}
+
+	return s.products, nil
 }
 
-func (s *MemoryStore) Create(p Product) Product {
+func (s *MemoryStore) Create(ctx context.Context, p Product) (Product, error) {
+	select {
+    case <-ctx.Done():
+        return Product{}, ctx.Err()
+    default:
+    }
+
 	p.ID = s.nextID
 	s.nextID++
 	s.products = append(s.products, p)
-	return p
+	return p, nil
 }
 
-func (s *MemoryStore) GetByID(id int) (Product, error) {
+func (s *MemoryStore) GetByID(ctx context.Context, id int) (Product, error) {
+	select {
+    case <-ctx.Done():
+        return Product{}, ctx.Err()
+    default:
+    }
+
 	for _, p := range s.products {
 		if p.ID == id {
 			return p, nil
@@ -43,7 +62,13 @@ func (s *MemoryStore) GetByID(id int) (Product, error) {
 	return Product{}, fmt.Errorf("product %d not found", id)
 }
 
-func (s *MemoryStore) Update(id int, updated Product) (Product, error) {
+func (s *MemoryStore) Update(ctx context.Context, id int, updated Product) (Product, error) {
+	select {
+    case <-ctx.Done():
+        return Product{}, ctx.Err()
+    default:
+    }
+
 	for i, p := range s.products {
 		if p.ID == id {
 			updated.ID = id
@@ -54,7 +79,13 @@ func (s *MemoryStore) Update(id int, updated Product) (Product, error) {
 	return Product{}, fmt.Errorf("product %d not found", id)
 }
 
-func (s *MemoryStore) Delete(id int) error {
+func (s *MemoryStore) Delete(ctx context.Context, id int) error {
+	select {
+    case <-ctx.Done():
+        return ctx.Err()
+    default:
+    }
+
 	for i, p := range s.products {
 		if p.ID == id {
 			s.products = append(s.products[:i], s.products[i+1:]...)

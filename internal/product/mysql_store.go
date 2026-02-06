@@ -1,6 +1,7 @@
 package product
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -36,10 +37,10 @@ func NewMySQLStore(connStr string) (*MySQLStore, error) {
 	return &MySQLStore{db: db}, nil
 }
 
-func (s *MySQLStore) List() []Product {
-	rows, err := s.db.Query("SELECT id, name, price FROM products")
+func (s *MySQLStore) List(ctx context.Context) ([]Product, error) {
+	rows, err := s.db.QueryContext(ctx, "SELECT id, name, price FROM products")
 	if err != nil {
-		return []Product{}
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -52,12 +53,12 @@ func (s *MySQLStore) List() []Product {
 		products = append(products, p)
 	}
 
-	return products
+	return products, nil
 }
 
-func (s *MySQLStore) GetByID(id int) (Product, error) {
+func (s *MySQLStore) GetByID(ctx context.Context, id int) (Product, error) {
 	var p Product
-	err := s.db.QueryRow("SELECT id, name, price FROM products WHERE id = ?", id).
+	err := s.db.QueryRowContext(ctx, "SELECT id, name, price FROM products WHERE id = ?", id).
 		Scan(&p.ID, &p.Name, &p.Price)
 
 	if err == sql.ErrNoRows {
@@ -70,23 +71,23 @@ func (s *MySQLStore) GetByID(id int) (Product, error) {
 	return p, nil
 }
 
-func (s *MySQLStore) Create(p Product) Product {
-	result, err := s.db.Exec(
+func (s *MySQLStore) Create(ctx context.Context, p Product) (Product, error) {
+	result, err := s.db.ExecContext( ctx,
 		"INSERT INTO products (name, price) VALUES (?,?)",
 		p.Name, p.Price,
 	)
 
 	if err != nil {
-		return Product{}
+		return Product{}, err
 	}
 
 	id, _ := result.LastInsertId()
 	p.ID = int(id)
-	return p 
+	return p, nil
 }
 
-func (s *MySQLStore) Update(id int, p Product) (Product, error) {
-	result, err := s.db.Exec(
+func (s *MySQLStore) Update(ctx context.Context, id int, p Product) (Product, error) {
+	result, err := s.db.ExecContext(ctx, 
 		"UPDATE products SET name = ?, price = ?, WHERE id = ?",
 		p.Name, p.Price, id, 
 	)
@@ -104,8 +105,9 @@ func (s *MySQLStore) Update(id int, p Product) (Product, error) {
 	return p, nil
 }
 
-func (s *MySQLStore) Delete(id int) error {
-	result, err := s.db.Exec("DELETE FROM products WHERE id = ?", id)
+func (s *MySQLStore) Delete(ctx context.Context, id int) error {
+	result, err := s.db.ExecContext(ctx,
+		"DELETE FROM products WHERE id = ?", id)
 	if err != nil {
 		return err 
 	}
