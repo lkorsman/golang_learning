@@ -9,6 +9,8 @@ import (
 	"syscall"
 	"time"
 
+	"lukekorsman.com/store/internal/auth"
+	"lukekorsman.com/store/internal/config"
 	apphttp "lukekorsman.com/store/internal/http"
 	"lukekorsman.com/store/internal/product"
 
@@ -19,6 +21,12 @@ import (
 
 func main() {
 	godotenv.Load()
+	cfg := config.Load()
+
+	r := chi.NewRouter()
+	r.Use(middleware.Logger)
+	r.Use(middleware.Recoverer)
+	r.Use(apphttp.RequestTimer)
 
 	var store product.Store
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
@@ -33,28 +41,35 @@ func main() {
 		fmt.Println("Using in-memory store")
 	}
 
-	r := chi.NewRouter()
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(apphttp.RequestTimer)
+	userStore := auth.NewMemoryUserStore()
+    jwtManager := auth.NewJWTManager(cfg.JWTSecret, "store-api")
+    authHandler := auth.NewHandler(userStore, jwtManager)
 
-	handler := product.NewHandler(store)
+	r.Route("/auth", func(r chi.Router) {
+        r.Post("/register", authHandler.Register)
+        r.Post("/login", authHandler.Login)
+    })
 
+	productHandler := product.NewHandler(store)
 	r.Route("/products", func(r chi.Router) {
-		r.Get("/", handler.List)
-		r.With(apphttp.SimpleAuth).Post("/", handler.Create)
-		r.Get("/{id}", handler.Get)
-		r.With(apphttp.SimpleAuth).Put("/{id}", handler.Update)
-		r.With(apphttp.SimpleAuth).Delete("/{id}", handler.Delete)
+		r.Get("/", productHandler.List)
+		r.Get("/{id}", productHandler.Get)
+
+		r.Group(func(r chi.Router) {
+			r.Use(apphttp.JWTAuth(jwtManager, userStore))
+			r.Post("/", productHandler.Create)
+			r.Put("/{id}", productHandler.Update)
+			r.Delete("/{id}", productHandler.Delete)
+		})
 	})
 
 	srv := &http.Server{
-		Addr:    ":8080",
+		Addr:    ":" + cfg.Port,
 		Handler: r,
 	}
 
 	go func() {
-		fmt.Println("Listening on :8080")
+		fmt.Println("Listening on :" + cfg.Port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Println("server error:", err)
 		}

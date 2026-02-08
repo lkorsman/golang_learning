@@ -8,7 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	apphttp "lukekorsman.com/store/internal/http"
+	"lukekorsman.com/store/internal/auth"
 )
 
 type Handler struct {
@@ -29,7 +29,11 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
-	user, ok := apphttp.UserFromContext(r.Context())
+	user, ok := auth.UserFromContext(r.Context())
+    if !ok {
+        http.Error(w, "user not found", http.StatusUnauthorized)
+        return
+    }
 	if !ok {
 		http.Error(w, "user not found", http.StatusUnauthorized)
 		return
@@ -48,7 +52,7 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("User %s is creating a product\n", user.Name)
+	fmt.Printf("User %s is creating a product\n", user.Email)
 	created, err := h.store.Create(r.Context(), p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -4,7 +4,10 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
+
+	"lukekorsman.com/store/internal/auth"
 
 	"github.com/rs/zerolog"
 )
@@ -65,4 +68,39 @@ type responseWriter struct {
 func (w *responseWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
+}
+
+func JWTAuth(jwtManager *auth.JWTManager, userStore auth.UserStore) func(http.Handler) http.Handler {
+    return func(next http.Handler) http.Handler {
+        return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+            authHeader := r.Header.Get("Authorization")
+            if authHeader == "" {
+                http.Error(w, "missing authorization header", http.StatusUnauthorized)
+                return
+            }
+            
+            parts := strings.Split(authHeader, " ")
+            if len(parts) != 2 || parts[0] != "Bearer" {
+                http.Error(w, "invalid authorization header format", http.StatusUnauthorized)
+                return
+            }
+            
+            tokenString := parts[1]
+            
+            claims, err := jwtManager.Verify(tokenString)
+            if err != nil {
+                http.Error(w, "invalid token", http.StatusUnauthorized)
+                return
+            }
+   
+            user, err := userStore.GetByID(r.Context(), claims.UserID)
+            if err != nil {
+                http.Error(w, "user not found", http.StatusUnauthorized)
+                return
+            }
+   
+            ctx := auth.ContextWithUser(r.Context(), user)
+            next.ServeHTTP(w, r.WithContext(ctx))
+        })
+    }
 }
