@@ -1,0 +1,8 @@
+# .dockerignore
+.git
+.env
+*.md
+.DS_Store
+bin/
+coverage.out
+*.test

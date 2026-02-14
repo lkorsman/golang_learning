@@ -317,6 +317,55 @@ The app will automatically fall back to an in-memory store.
 | `JWT_SECRET` | Secret key for JWT signing | `your-secret-key-change-in-production` |
 | `ENVIRONMENT` | Environment (development/production) | `development` |
 
+## Running with Docker
+
+### Prerequisites
+- Docker
+- Docker Compose
+
+### Quick Start
+
+1. **Build and start services**
+```bash
+make docker-up
+```
+
+This will:
+- Start MySQL container
+- Build and start the API container
+- Run database migrations automatically
+- Expose the API on http://localhost:8080
+
+2. **View logs**
+```bash
+make docker-logs
+```
+
+3. **Stop services**
+```bash
+make docker-down
+```
+
+### Docker Commands
+
+| Command | Description |
+|---------|-------------|
+| `make docker-build` | Build the API image |
+| `make docker-up` | Start all services |
+| `make docker-down` | Stop all services |
+| `make docker-logs` | View API logs |
+| `make docker-restart` | Restart API only |
+| `make docker-clean` | Remove all containers and volumes |
+| `make docker-shell` | Shell into API container |
+| `make docker-mysql` | Connect to MySQL |
+
+### Environment Variables
+
+Copy `.env.example` to `.env` and customize:
+```bash
+cp .env.example .env
+```
+
 ## What I Learned
 
 This project helped me learn:
@@ -340,7 +389,7 @@ This project helped me learn:
 - [ ] Store users in MySQL instead of memory
 - [ ] Add API rate limiting
 - [ ] Implement CORS middleware
-- [ ] Add Docker support
+- [X] Add Docker support
 - [ ] Set up CI/CD pipeline
 - [ ] Add API documentation with Swagger
 
