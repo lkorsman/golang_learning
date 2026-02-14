@@ -8,7 +8,9 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
+	"lukekorsman.com/store/internal/auth"
 	apphttp "lukekorsman.com/store/internal/http"
 )
 
@@ -86,27 +88,43 @@ func TestListProducts_JSON(t *testing.T) {
 }
 
 func TestCreateProduct(t *testing.T) {
+	// Setup JWT manager and user store for testing
+    jwtManager := auth.NewJWTManager("test-secret", "test")
+    userStore := auth.NewMemoryUserStore()
+
+	// Create a test user
+    testUser, _ := userStore.Create(context.Background(), "test@example.com", "password")
+    
+    // Generate a valid token
+    validToken, _ := jwtManager.Generate(testUser.ID, testUser.Email, 1*time.Hour)
+
 	tests := []struct {
 		name		string
-		apiKey		string
+		token		string
 		body		string
 		wantStatus	int
 	} {
 		{
 			name: 		"unauthorized",
-			apiKey:		"",
+			token:		"",
 			body:		`{"name":"Book","Price":10}`,
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
+            name:       "invalid_token",
+            token:      "invalid-token",
+            body:       `{"name":"Book","price":10}`,
+            wantStatus: http.StatusUnauthorized,
+        },
+		{
 			name: 		"invalid JSON",
-			apiKey: 	"secret",
+			token: 		validToken,
 			body: 		`{invalid}`,
 			wantStatus: http.StatusBadRequest,
 		},
 		{
 			name:		"valid request",
-			apiKey: 	"secret",
+			token: 		validToken,
 			body: 		`{"name":"Book","Price":10}`,
 			wantStatus: http.StatusCreated,
 		},
@@ -117,9 +135,10 @@ func TestCreateProduct(t *testing.T) {
 			store := NewMemoryStore()
 			handler := NewHandler(store)
 
-			protected := apphttp.SimpleAuth(
-				http.HandlerFunc(handler.Create),
-			)
+            // Wrap with JWT middleware
+            protected := apphttp.JWTAuth(jwtManager, userStore)(
+                http.HandlerFunc(handler.Create),
+            )
 
 			req := httptest.NewRequest(
 				http.MethodPost,
@@ -128,9 +147,9 @@ func TestCreateProduct(t *testing.T) {
 			)
 
 			req.Header.Set("Content-Type", "application/json")
-			if tt.apiKey != "" {
-				req.Header.Set("X-API-Key", tt.apiKey)
-			}
+            if tt.token != "" {
+                req.Header.Set("Authorization", "Bearer "+tt.token)
+            }
 
 			rec := httptest.NewRecorder()
 			protected.ServeHTTP(rec, req)

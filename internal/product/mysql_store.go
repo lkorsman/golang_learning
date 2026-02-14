@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	_ "github.com/go-sql-driver/mysql"
+	"lukekorsman.com/store/internal/database"
 )
 
 type MySQLStore struct {
@@ -22,17 +23,9 @@ func NewMySQLStore(connStr string) (*MySQLStore, error) {
 		return nil, err
 	}
 
-	_, err = db.Exec(`
-		CREATE TABLE IF NOT EXISTS products (
-			id INT AUTO_INCREMENT PRIMARY KEY,
-			name VARCHAR(100) NOT NULL,
-			price DECIMAL(10,2) NOT NULL
-		)	
-	`)
-
-	if err != nil {
-		return nil, err
-	}
+    if err := database.RunMigrations(db); err != nil {
+        return nil, fmt.Errorf("migration failed: %w", err)
+    }
 
 	return &MySQLStore{db: db}, nil
 }

@@ -1,0 +1,1 @@
+DROP INDEX idx_products_name ON products;
