@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"lukekorsman.com/store/internal/auth"
+	"lukekorsman.com/store/internal/cache"
 	"lukekorsman.com/store/internal/config"
 	apphttp "lukekorsman.com/store/internal/http"
 	"lukekorsman.com/store/internal/product"
@@ -41,6 +42,14 @@ func main() {
 		fmt.Println("Using in-memory store")
 	}
 
+    redisCache, err := cache.NewRedisCache(cfg.RedisURL)
+    if err != nil {
+        fmt.Printf("Redis unavailable, running without cache: %v\n", err)
+    }
+    if redisCache != nil {
+        defer redisCache.Close()
+    }
+
 	userStore := auth.NewMemoryUserStore()
     jwtManager := auth.NewJWTManager(cfg.JWTSecret, "store-api")
     authHandler := auth.NewHandler(userStore, jwtManager)
@@ -50,7 +59,7 @@ func main() {
         r.Post("/login", authHandler.Login)
     })
 
-	productHandler := product.NewHandler(store)
+	productHandler := product.NewHandler(store, redisCache)
 	r.Route("/products", func(r chi.Router) {
 		r.Get("/", productHandler.List)
 		r.Get("/{id}", productHandler.Get)

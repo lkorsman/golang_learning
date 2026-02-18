@@ -56,7 +56,7 @@ func TestListProducts_JSON(t *testing.T) {
 				store.Create(context.Background(), p)
 			}
 
-			handler := NewHandler(store)
+			handler := NewHandler(store, nil)
 
 			req := httptest.NewRequest(http.MethodGet, "/products", nil)
 			rec := httptest.NewRecorder()
@@ -133,7 +133,7 @@ func TestCreateProduct(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			store := NewMemoryStore()
-			handler := NewHandler(store)
+			handler := NewHandler(store, nil)
 
             // Wrap with JWT middleware
             protected := apphttp.JWTAuth(jwtManager, userStore)(
@@ -171,7 +171,7 @@ func BenchmarkListProducts_Sizes(b *testing.B) {
 				store.Create(context.Background(), Product{Name: "Item", Price: 10})
 			}
 
-			handler := NewHandler(store)
+			handler := NewHandler(store, nil)
 			req := httptest.NewRequest(http.MethodGet, "/products", nil)
 
 			b.ResetTimer()

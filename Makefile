@@ -58,3 +58,9 @@ docker-shell:
 
 docker-mysql:
 	docker exec -it store_mysql mysql -u root -p
+
+docker-redis:
+	docker exec -it store_redis redis-cli
+
+redis-cli:
+	redis-cli
