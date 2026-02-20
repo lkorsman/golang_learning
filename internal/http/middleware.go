@@ -4,10 +4,12 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
 	"lukekorsman.com/store/internal/auth"
+	"lukekorsman.com/store/internal/metrics"
 
 	"github.com/rs/zerolog"
 )
@@ -103,4 +105,22 @@ func JWTAuth(jwtManager *auth.JWTManager, userStore auth.UserStore) func(http.Ha
             next.ServeHTTP(w, r.WithContext(ctx))
         })
     }
+}
+
+func MetricsMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        start := time.Now()
+        
+        // Wrap response writer to capture status code
+        ww := &responseWriter{ResponseWriter: w, status: http.StatusOK}
+        
+        next.ServeHTTP(ww, r)
+        
+        duration := time.Since(start).Seconds()
+        status := strconv.Itoa(ww.status)
+        
+        // Record metrics
+        metrics.HttpRequestsTotal.WithLabelValues(r.Method, r.URL.Path, status).Inc()
+        metrics.HttpRequestDuration.WithLabelValues(r.Method, r.URL.Path, status).Observe(duration)
+    })
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"net/http"
 	"time"
+
+	"lukekorsman.com/store/internal/metrics"
 )
 
 type Handler struct {
@@ -56,6 +58,8 @@ func (h *Handler) Register(w http.ResponseWriter, r *http.Request) {
 		return 
 	}
 
+	metrics.UserRegistrations.Inc()
+
 	token, err := h.jwtManager.Generate(user.ID, user.Email, 24*time.Hour)
 	if err != nil {
 		http.Error(w, "failed to generate token", http.StatusInternalServerError)
@@ -77,6 +81,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 
 	user, err := h.userStore.GetByEmail(r.Context(), req.Email)
 	if err != nil {
+		metrics.LoginAttempts.WithLabelValues("failures").Inc()
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
@@ -88,9 +93,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := memStore.ValidatePassword(user.Password, req.Password); err != nil {
+		metrics.LoginAttempts.WithLabelValues("failure").Inc()
 		http.Error(w, "invalid credentials", http.StatusUnauthorized)
 		return
 	}
+
+	metrics.LoginAttempts.WithLabelValues("success").Inc()
 
 	token, err := h.jwtManager.Generate(user.ID, user.Email, 24*time.Hour)
 	if err != nil {

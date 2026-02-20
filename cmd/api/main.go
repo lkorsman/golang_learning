@@ -18,6 +18,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/joho/godotenv"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
 func main() {
@@ -28,6 +29,7 @@ func main() {
 	r.Use(middleware.Logger)
 	r.Use(middleware.Recoverer)
 	r.Use(apphttp.RequestTimer)
+	r.Use(apphttp.MetricsMiddleware)
 
 	var store product.Store
 	if dbURL := os.Getenv("DATABASE_URL"); dbURL != "" {
@@ -54,6 +56,8 @@ func main() {
     jwtManager := auth.NewJWTManager(cfg.JWTSecret, "store-api")
     authHandler := auth.NewHandler(userStore, jwtManager)
 
+	r.Handle("/metrics", promhttp.Handler())
+
 	r.Route("/auth", func(r chi.Router) {
         r.Post("/register", authHandler.Register)
         r.Post("/login", authHandler.Login)
@@ -79,6 +83,7 @@ func main() {
 
 	go func() {
 		fmt.Println("Listening on :" + cfg.Port)
+		fmt.Println("Metrics available at http://localhost:" + cfg.Port + "/metrics")
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			fmt.Println("server error:", err)
 		}

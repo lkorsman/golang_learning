@@ -11,6 +11,7 @@ import (
 
 	"lukekorsman.com/store/internal/auth"
 	"lukekorsman.com/store/internal/cache"
+	"lukekorsman.com/store/internal/metrics"
 )
 
 type Handler struct {
@@ -39,8 +40,10 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusOK, products)
 			return
 		}
+		metrics.CacheMisses.WithLabelValues(cacheKey).Inc()
 	}
 
+	defer metrics.TimeDatabaseQuery("list_products")()
 	products, err := h.store.List(ctx)
 	if err != nil {
         http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -80,11 +83,15 @@ func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fmt.Printf("User %s is creating a product\n", user.Email)
+
+	defer metrics.TimeDatabaseQuery("create_product")()
 	created, err := h.store.Create(r.Context(), p)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	metrics.ProductsCreated.Inc()
 
 	if h.cache != nil {
 		if err := h.cache.Delete(r.Context(), "products:list"); err != nil {
@@ -176,11 +183,14 @@ func (h *Handler) Delete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	defer metrics.TimeDatabaseQuery("delete_product")()
 	if err := h.store.Delete(r.Context(), id); err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
 
+	metrics.ProductsDeleted.Inc()
+	
 	cacheKeys := []string{
         "products:list",
         fmt.Sprintf("product:%d", id),
