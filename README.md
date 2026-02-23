@@ -1,24 +1,31 @@
 # Go Store API
 
-A REST API built with Go for learning purposes. Features JWT authentication, MySQL persistence, and full CRUD operations for managing products.
+A production-ready REST API built with Go. Features JWT authentication, MySQL persistence, Redis caching, database migrations, comprehensive observability, and full CRUD operations for managing products.
 
 ## Features
 
-- **JWT Authentication** - Secure user registration and login
-- **MySQL Database** - Persistent storage with context-aware queries
+- **JWT Authentication** - Secure user registration and login with bcrypt password hashing
+- **MySQL Database** - Persistent storage with context-aware queries and migrations
+- **Redis Caching** - Lightning-fast responses with intelligent cache invalidation
+- **Database Migrations** - Version-controlled schema management with golang-migrate
+- **Observability** - Prometheus metrics for monitoring performance and health
+- **Docker Support** - Complete containerization with docker-compose
 - **Request Validation** - Input validation for all endpoints
 - **Comprehensive Testing** - Table-driven tests and benchmarks
 - **Structured Logging** - Clean, readable logs
-- **Middleware** - Request timing, authentication, recovery
+- **Middleware** - Request timing, authentication, recovery, metrics
 - **Clean Architecture** - Organized internal packages
 
 ## Tech Stack
 
 - **Framework**: [Chi Router](https://github.com/go-chi/chi)
 - **Database**: MySQL with `database/sql`
+- **Cache**: Redis with `go-redis`
+- **Migrations**: [golang-migrate](https://github.com/golang-migrate/migrate)
+- **Metrics**: Prometheus client library
 - **Authentication**: JWT tokens with `golang-jwt/jwt`
 - **Password Hashing**: bcrypt
-- **Config**: Environment variables
+- **Containerization**: Docker & Docker Compose
 
 ## Project Structure
 
@@ -33,18 +40,33 @@ A REST API built with Go for learning purposes. Features JWT authentication, MyS
 │   │   ├── jwt.go            # JWT token management
 │   │   ├── store.go          # User storage
 │   │   └── user.go           # User model
+│   ├── cache/
+│   │   └── redis.go          # Redis cache implementation
 │   ├── config/
 │   │   └── config.go         # Configuration management
+│   ├── database/
+│   │   └── migrate.go        # Database migration runner
 │   ├── http/
 │   │   ├── context.go        # Context utilities
-│   │   └── middleware.go     # HTTP middleware
+│   │   └── middleware.go     # HTTP middleware (auth, metrics, timing)
+│   ├── metrics/
+│   │   └── metrics.go        # Prometheus metrics definitions
 │   └── product/
 │       ├── handler.go        # Product endpoints
 │       ├── mysql_store.go    # MySQL implementation
 │       ├── product.go        # Product model
 │       ├── store.go          # Store interface
 │       └── validation.go     # Input validation
+├── migrations/
+│   ├── 000001_create_products_table.up.sql
+│   ├── 000001_create_products_table.down.sql
+│   └── ...                   # Migration files
 ├── .env                      # Environment variables
+├── .env.example              # Environment template
+├── docker-compose.yml        # Docker services configuration
+├── Dockerfile                # Multi-stage Docker build
+├── Makefile                  # Common commands
+├── prometheus.yml            # Prometheus configuration
 ├── go.mod
 └── go.sum
 ```
@@ -53,10 +75,37 @@ A REST API built with Go for learning purposes. Features JWT authentication, MyS
 
 ### Prerequisites
 
-- Go 1.21 or higher
+- Go 1.24 or higher
 - MySQL 5.7 or higher
 
 ### Installation
+
+#### Option 1: Docker (Recommended)
+
+1. **Clone the repository**
+```bash
+git clone https://github.com/lkorsman/golang_learning.git
+cd golang_learning
+```
+
+2. **Start all services with Docker Compose**
+```bash
+make docker-up
+```
+
+This will:
+- Start MySQL container
+- Start Redis container
+- Build and start the API container
+- Run database migrations automatically
+- Expose the API on http://localhost:8080
+
+3. **View logs**
+```bash
+make docker-logs
+```
+
+#### Option 2: Local Development
 
 1. **Clone the repository**
 ```bash
@@ -67,33 +116,45 @@ cd golang_learning
 2. **Install dependencies**
 ```bash
 go mod download
+
+# Install migration tool
+brew install golang-migrate
 ```
 
 3. **Start MySQL**
 ```bash
 brew services start mysql
-# or
-mysql.server start
 ```
 
-4. **Create the database**
+4. **Start Redis**
+```bash
+brew services start redis
+```
+
+5. **Create the database**
 ```bash
 mysql -u root -p
 CREATE DATABASE store;
 exit
 ```
 
-5. **Configure environment variables**
+6. **Configure environment variables**
 
 Create a `.env` file in the project root:
 ```env
 PORT=8080
 JWT_SECRET=your-secret-key-change-in-production
 DATABASE_URL=root:yourpassword@tcp(localhost:3306)/store?parseTime=true
+REDIS_URL=localhost:6379
 ENVIRONMENT=development
 ```
 
-6. **Run the application**
+7. **Run migrations**
+```bash
+make migrate-up
+```
+
+8. **Run the application**
 ```bash
 go run cmd/api/main.go
 ```
@@ -225,6 +286,23 @@ Authorization: Bearer <your-jwt-token>
 # Response (204 No Content)
 ```
 
+#### Prometheus Metrics
+```bash
+GET /metrics
+
+# Response: Prometheus format metrics
+# http_requests_total - Total HTTP requests by method, path, status
+# http_request_duration_seconds - Request latency histogram
+# cache_hits_total - Cache hits by key
+# cache_misses_total - Cache misses by key
+# db_queries_total - Database queries by operation
+# db_query_duration_seconds - Database query latency
+# products_created_total - Total products created
+# products_deleted_total - Total products deleted
+# user_registrations_total - Total user registrations
+# login_attempts_total - Login attempts (success/failure)
+```
+
 ## Example Usage
 
 ### Complete Flow Example
@@ -279,13 +357,49 @@ go test ./internal/product -v
 
 ## Development
 
-### Code Formatting
-```bash
-# Format all code
-go fmt ./...
+### Database Migrations
 
-# Check for common mistakes
-go vet ./...
+```bash
+# Create a new migration
+make migrate-create
+# Enter migration name when prompted
+
+# Run all pending migrations
+make migrate-up
+
+# Rollback the last migration
+make migrate-down
+
+# Check current migration version
+make migrate-version
+
+# Force a specific version (if stuck)
+make migrate-force
+```
+
+### Cache Management
+
+```bash
+# Connect to Redis CLI
+make redis-cli
+
+# Common Redis commands:
+KEYS *              # List all keys
+GET products:list   # Get a cached value
+TTL products:list   # Check time to live
+FLUSHALL           # Clear all cache
+```
+
+### Observability
+
+```bash
+# View metrics
+curl http://localhost:8080/metrics
+
+# Example Prometheus queries (if using Prometheus):
+# - rate(http_requests_total[1m])           # Requests per second
+# - http_request_duration_seconds           # Latency percentiles
+# - cache_hits_total / (cache_hits_total + cache_misses_total)  # Cache hit rate./...
 ```
 
 ### Running with In-Memory Store
@@ -297,6 +411,16 @@ To run without MySQL (useful for development/testing), simply comment out or rem
 ```
 
 The app will automatically fall back to an in-memory store.
+
+### Running without Redis
+
+To run without Redis caching, comment out or remove the `REDIS_URL`:
+
+```env
+# REDIS_URL=localhost:6379
+```
+
+The app will log a warning and continue without caching.
 
 ## Validation Rules
 
@@ -314,72 +438,29 @@ The app will automatically fall back to an in-memory store.
 |----------|-------------|---------|
 | `PORT` | Server port | `8080` |
 | `DATABASE_URL` | MySQL connection string | _(empty - uses in-memory)_ |
+| `REDIS_URL` | Redis connection string | `localhost:6379` |
 | `JWT_SECRET` | Secret key for JWT signing | `your-secret-key-change-in-production` |
 | `ENVIRONMENT` | Environment (development/production) | `development` |
-
-## Running with Docker
-
-### Prerequisites
-- Docker
-- Docker Compose
-
-### Quick Start
-
-1. **Build and start services**
-```bash
-make docker-up
-```
-
-This will:
-- Start MySQL container
-- Build and start the API container
-- Run database migrations automatically
-- Expose the API on http://localhost:8080
-
-2. **View logs**
-```bash
-make docker-logs
-```
-
-3. **Stop services**
-```bash
-make docker-down
-```
-
-### Docker Commands
-
-| Command | Description |
-|---------|-------------|
-| `make docker-build` | Build the API image |
-| `make docker-up` | Start all services |
-| `make docker-down` | Stop all services |
-| `make docker-logs` | View API logs |
-| `make docker-restart` | Restart API only |
-| `make docker-clean` | Remove all containers and volumes |
-| `make docker-shell` | Shell into API container |
-| `make docker-mysql` | Connect to MySQL |
-
-### Environment Variables
-
-Copy `.env.example` to `.env` and customize:
-```bash
-cp .env.example .env
-```
 
 ## What I Learned
 
 This project helped me learn:
-- Building REST APIs with Go
-- Chi router and middleware patterns
+- Building REST APIs with Go and Chi router
 - JWT authentication and authorization
 - MySQL integration with `database/sql`
 - Context-aware database queries
 - Password hashing with bcrypt
-- Input validation
+- Input validation patterns
 - Table-driven testing in Go
-- Interface-based design
+- Interface-based design for testability
 - Clean architecture patterns
 - Graceful server shutdown
+- **Redis caching** - Cache-aside pattern, TTL, invalidation strategies
+- **Database migrations** - Schema versioning with golang-migrate
+- **Docker & Docker Compose** - Multi-stage builds, containerization
+- **Observability** - Prometheus metrics, monitoring production systems
+- **Middleware patterns** - Request timing, metrics collection, authentication
+- **Concurrency patterns** - Safe concurrent access with mutexes
 
 ## Future Improvements
 
