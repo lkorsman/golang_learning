@@ -1,8 +1,10 @@
 package http
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"net"
 	"net/http"
 	"strconv"
 	"strings"
@@ -67,7 +69,7 @@ type responseWriter struct {
 	status int
 }
 
-func (w *responseWriter) WriteHeader(status int) {
+func (w *hijackableResponseWriter) WriteHeader(status int) {
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
@@ -123,4 +125,19 @@ func MetricsMiddleware(next http.Handler) http.Handler {
         metrics.HttpRequestsTotal.WithLabelValues(r.Method, r.URL.Path, status).Inc()
         metrics.HttpRequestDuration.WithLabelValues(r.Method, r.URL.Path, status).Observe(duration)
     })
+}
+
+// hijackableResponseWriter implements http.Hijacker
+type hijackableResponseWriter struct {
+	http.ResponseWriter
+	status int
+}
+
+// Hijack implements http.Hijacker
+func (w *hijackableResponseWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+    h, ok := w.ResponseWriter.(http.Hijacker)
+    if !ok {
+        return nil, nil, fmt.Errorf("ResponseWriter does not implement http.Hijacker")
+    }
+    return h.Hijack()
 }

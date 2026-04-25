@@ -11,6 +11,7 @@ import (
 
 	"lukekorsman.com/store/internal/auth"
 	"lukekorsman.com/store/internal/cache"
+	"lukekorsman.com/store/internal/chat"
 	"lukekorsman.com/store/internal/config"
 	apphttp "lukekorsman.com/store/internal/http"
 	"lukekorsman.com/store/internal/product"
@@ -44,24 +45,33 @@ func main() {
 		fmt.Println("Using in-memory store")
 	}
 
-    redisCache, err := cache.NewRedisCache(cfg.RedisURL)
-    if err != nil {
-        fmt.Printf("Redis unavailable, running without cache: %v\n", err)
-    }
-    if redisCache != nil {
-        defer redisCache.Close()
-    }
+	redisCache, err := cache.NewRedisCache(cfg.RedisURL)
+	if err != nil {
+		fmt.Printf("Redis unavailable, running without cache: %v\n", err)
+	}
+	if redisCache != nil {
+		defer redisCache.Close()
+	}
 
 	userStore := auth.NewMemoryUserStore()
-    jwtManager := auth.NewJWTManager(cfg.JWTSecret, "store-api")
-    authHandler := auth.NewHandler(userStore, jwtManager)
+	jwtManager := auth.NewJWTManager(cfg.JWTSecret, "store-api")
+	authHandler := auth.NewHandler(userStore, jwtManager)
+
+	// Start chat hub
+	hub := chat.NewHub()
+	go hub.Run()
+	chatHandler := chat.NewHandler(hub)
 
 	r.Handle("/metrics", promhttp.Handler())
 
+	// WebSocket routes
+	r.Get("/ws", chatHandler.ServeWS)
+	r.Get("/chat/stats", chatHandler.Stats)
+
 	r.Route("/auth", func(r chi.Router) {
-        r.Post("/register", authHandler.Register)
-        r.Post("/login", authHandler.Login)
-    })
+		r.Post("/register", authHandler.Register)
+		r.Post("/login", authHandler.Login)
+	})
 
 	productHandler := product.NewHandler(store, redisCache)
 	r.Route("/products", func(r chi.Router) {
