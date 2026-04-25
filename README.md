@@ -9,6 +9,7 @@ A production-ready REST API built with Go. Features JWT authentication, MySQL pe
 - **Redis Caching** - Lightning-fast responses with intelligent cache invalidation
 - **Database Migrations** - Version-controlled schema management with golang-migrate
 - **Observability** - Prometheus metrics for monitoring performance and health
+**WebSocket Chat** - Real-time chat with CLI client, showcasing Go concurrency patterns
 - **Docker Support** - Complete containerization with docker-compose
 - **Request Validation** - Input validation for all endpoints
 - **Comprehensive Testing** - Table-driven tests and benchmarks
@@ -25,6 +26,7 @@ A production-ready REST API built with Go. Features JWT authentication, MySQL pe
 - **Metrics**: Prometheus client library
 - **Authentication**: JWT tokens with `golang-jwt/jwt`
 - **Password Hashing**: bcrypt
+- **WebSockets**: Gorilla WebSocket
 - **Containerization**: Docker & Docker Compose
 
 ## Project Structure
@@ -32,8 +34,10 @@ A production-ready REST API built with Go. Features JWT authentication, MySQL pe
 ```
 .
 ├── cmd/
-│   └── api/
-│       └── main.go           # Application entry point
+│   ├── api/
+│   │   └── main.go           # Application entry point
+│   └── chat-client/
+│       └── main.go           # CLI chat client
 ├── internal/
 │   ├── auth/
 │   │   ├── handler.go        # Auth endpoints (register, login)
@@ -41,7 +45,12 @@ A production-ready REST API built with Go. Features JWT authentication, MySQL pe
 │   │   ├── store.go          # User storage
 │   │   └── user.go           # User model
 │   ├── cache/
-│   │   └── redis.go          # Redis cache implementation
+│   │   └── redis.go          # Redis cache 
+│   ├── chat/
+│   │   ├── client.go         # WebSocket client (connection handler)
+│   │   ├── handler.go        # WebSocket HTTP handler
+│   │   └── hub.go            # Chat hub (manages connections & broadcasting)
+implementation
 │   ├── config/
 │   │   └── config.go         # Configuration management
 │   ├── database/
@@ -303,6 +312,81 @@ GET /metrics
 # login_attempts_total - Login attempts (success/failure)
 ```
 
+#### Chat Statistics
+```bash
+GET /chat/stats
+ 
+# Response
+{
+  "connected_users": 3
+}
+```
+ 
+### WebSocket Chat
+ 
+#### Connect to Chat
+```bash
+WS /ws?username=<your-username>
+ 
+# WebSocket connection for real-time chat
+# Messages are broadcast to all connected clients
+```
+ 
+#### Using the CLI Chat Client
+ 
+**Terminal 1 - Start first user:**
+```bash
+go run cmd/chat-client/main.go Alice
+Connected as Alice. Type messages and press Enter.
+Type 'quit' to exit.
+---
+```
+ 
+**Terminal 2 - Start second user:**
+```bash
+go run cmd/chat-client/main.go Bob
+Connected as Bob. Type messages and press Enter.
+Type 'quit' to exit.
+---
+*** Alice joined the chat
+```
+ 
+**Terminal 3 - Start third user:**
+```bash
+go run cmd/chat-client/main.go Charlie
+Connected as Charlie. Type messages and press Enter.
+Type 'quit' to exit.
+---
+*** Alice joined the chat
+*** Bob joined the chat
+```
+ 
+**Chat in action:**
+```
+# In Alice's terminal:
+Hello everyone!
+ 
+# In Bob's terminal:
+Alice: Hello everyone!
+Hi Alice!
+ 
+# In Charlie's terminal:
+Alice: Hello everyone!
+Bob: Hi Alice!
+Hey folks!
+ 
+# In all terminals:
+Charlie: Hey folks!
+```
+ 
+**Exit chat:**
+```
+quit
+ 
+# All users will see:
+*** Alice left the chat
+```
+
 ## Example Usage
 
 ### Complete Flow Example
@@ -460,7 +544,10 @@ This project helped me learn:
 - **Docker & Docker Compose** - Multi-stage builds, containerization
 - **Observability** - Prometheus metrics, monitoring production systems
 - **Middleware patterns** - Request timing, metrics collection, authentication
-- **Concurrency patterns** - Safe concurrent access with mutexes
+- **Concurrency patterns** - Safe concurrent access with mutexes, goroutines for client connections
+- **WebSocket protocol** - Real-time bidirectional communication
+- **Channel patterns** - Broadcasting messages, pub/sub with Go channels
+- **Connection lifecycle management** - Registration, heartbeat (ping/pong), graceful disconnection
 
 ## Future Improvements
 
