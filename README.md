@@ -9,7 +9,7 @@ A production-ready REST API built with Go. Features JWT authentication, MySQL pe
 - **Redis Caching** - Lightning-fast responses with intelligent cache invalidation
 - **Database Migrations** - Version-controlled schema management with golang-migrate
 - **Observability** - Prometheus metrics for monitoring performance and health
-**WebSocket Chat** - Real-time chat with CLI client, showcasing Go concurrency patterns
+- **WebSocket Chat** - Real-time chat with CLI client, showcasing Go concurrency patterns
 - **Docker Support** - Complete containerization with docker-compose
 - **Request Validation** - Input validation for all endpoints
 - **Comprehensive Testing** - Table-driven tests and benchmarks
@@ -50,7 +50,6 @@ A production-ready REST API built with Go. Features JWT authentication, MySQL pe
 │   │   ├── client.go         # WebSocket client (connection handler)
 │   │   ├── handler.go        # WebSocket HTTP handler
 │   │   └── hub.go            # Chat hub (manages connections & broadcasting)
-implementation
 │   ├── config/
 │   │   └── config.go         # Configuration management
 │   ├── database/
